@@ -1,0 +1,32 @@
+name: Build APK
+on:
+  push:
+    branches: [main]
+    paths-ignore: ['config.json']
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        app: [client, admin]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - name: Build
+        working-directory: ${{ matrix.app }}
+        run: |
+          npm install
+          npx cap add android
+          npx cap sync android
+          cd android && chmod +x gradlew && ./gradlew assembleDebug
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mobcash-${{ matrix.app }}
+          path: ${{ matrix.app }}/android/app/build/outputs/apk/debug/app-debug.apk

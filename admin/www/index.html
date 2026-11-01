@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="fr"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mobcash Admin</title>
+<style>
+:root{--bg:#f3f6f4;--card:#fff;--ink:#14231c;--muted:#5d6f66;--line:#d6e0da;--accent:#0d7a4f;--ai:#fff;--soft:#e3f2ea;--err:#b3261e}
+@media(prefers-color-scheme:dark){:root{color-scheme:dark;--bg:#0e1612;--card:#16211b;--ink:#eaf3ee;--muted:#9db0a5;--line:#2a3a31;--accent:#34c58a;--ai:#06150e;--soft:#1c3226;--err:#f2b8b5}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Trebuchet MS",system-ui,sans-serif;line-height:1.45;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}
+main{max-width:480px;margin:0 auto;padding:20px 16px 40px}
+h1{font-size:1.5rem;margin:8px 0 14px}h2{font-size:1.05rem;margin:0 0 12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;margin-bottom:14px}
+label{display:block;font-weight:600;margin:0 0 6px;font-size:.95rem}
+input,textarea{width:100%;font:inherit;font-size:1rem;padding:12px 13px;border-radius:10px;border:1.5px solid var(--line);background:var(--bg);color:var(--ink)}
+textarea{min-height:140px;resize:vertical}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}.f{margin-bottom:14px}
+.hint{color:var(--muted);font-size:.85rem;margin-top:6px}
+.eq{background:var(--soft);border-radius:10px;padding:10px 12px;font-weight:600;margin-top:4px}
+button{width:100%;border:0;border-radius:12px;background:var(--accent);color:var(--ai);font:inherit;font-weight:700;font-size:1.05rem;padding:14px}
+button.sec{background:transparent;color:var(--muted);border:1px solid var(--line);margin-top:10px;font-weight:600}
+.msg{min-height:1.3em;margin:10px 0 0;font-size:.92rem}.ok{color:var(--accent)}.bad{color:var(--err)}
+.hide{display:none}
+</style></head><body><main>
+<h1>Mobcash Admin</h1>
+
+<div class="card" id="login">
+<h2>Connexion</h2>
+<div class="f"><label for="tok">Jeton GitHub</label><input id="tok" type="password" autocomplete="off" placeholder="github_pat_..."></div>
+<button id="go">Se connecter</button>
+<p class="hint">Le jeton reste uniquement sur ce téléphone.</p>
+<p class="msg bad" id="lerr"></p>
+</div>
+
+<div id="panel" class="hide">
+<div class="card">
+<h2>Numéro WhatsApp</h2>
+<input id="wa" inputmode="numeric" placeholder="2250700000000">
+<p class="hint">Format international, sans + ni espaces.</p>
+</div>
+
+<div class="card">
+<h2>Taux de dépôt</h2>
+<div class="row"><div><label for="dk">Kz</label><input id="dk" inputmode="numeric"></div><div><label for="dc">CFA (F)</label><input id="dc" inputmode="numeric"></div></div>
+<div class="eq" id="deq"></div>
+</div>
+
+<div class="card">
+<h2>Taux de retrait</h2>
+<div class="row"><div><label for="rk">Kz</label><input id="rk" inputmode="numeric"></div><div><label for="rc">CFA (F)</label><input id="rc" inputmode="numeric"></div></div>
+<div class="eq" id="req"></div>
+</div>
+
+<div class="card">
+<h2>Message envoyé sur WhatsApp</h2>
+<textarea id="mg"></textarea>
+<p class="hint">Variables : {type} {id} {kz} {cfa}</p>
+</div>
+
+<button id="save">Enregistrer</button>
+<p class="msg" id="smsg"></p>
+<button class="sec" id="out">Se déconnecter</button>
+</div>
+</main>
+<script>
+var OWNER="gnaziz15-sys",REPO="mobcash";
+var URL="https://api.github.com/repos/"+OWNER+"/"+REPO+"/contents/config.json";
+var T=localStorage.getItem("tok")||"",sha=null;
+function $(i){return document.getElementById(i)}
+function num(i){return parseFloat(($(i).value||"").replace(/[^\d.]/g,""))||0}
+function fmt(n){return Math.round(n).toLocaleString("fr-FR").replace(/[\u202f\u00a0]/g," ")}
+function hdr(){return{Authorization:"Bearer "+T,Accept:"application/vnd.github+json"}}
+function eq(){
+  $("deq").textContent=fmt(num("dk"))+" Kz = "+fmt(num("dc"))+" F";
+  $("req").textContent=fmt(num("rk"))+" Kz = "+fmt(num("rc"))+" F";
+}
+["dk","dc","rk","rc"].forEach(function(i){$(i).addEventListener("input",eq)});
+function fill(c){
+  $("wa").value=c.whatsapp;$("dk").value=c.depotKz;$("dc").value=c.depotCfa;
+  $("rk").value=c.retraitKz;$("rc").value=c.retraitCfa;$("mg").value=c.message;eq();
+}
+function show(on){$("login").classList.toggle("hide",on);$("panel").classList.toggle("hide",!on)}
+async function loadCfg(){
+  $("lerr").textContent="";
+  try{
+    var r=await fetch(URL+"?ref=main&t="+Date.now(),{headers:hdr(),cache:"no-store"});
+    if(r.status==401||r.status==403||r.status==404){throw new Error("Jeton refusé ou dépôt introuvable.")}
+    if(!r.ok)throw new Error("Erreur "+r.status);
+    var j=await r.json();sha=j.sha;
+    fill(JSON.parse(decodeURIComponent(escape(atob(j.content.replace(/\n/g,""))))));
+    show(true);
+  }catch(e){show(false);$("lerr").textContent=e.message||"Connexion impossible."}
+}
+$("go").onclick=function(){
+  T=$("tok").value.trim();
+  if(!T){$("lerr").textContent="Collez votre jeton.";return}
+  localStorage.setItem("tok",T);loadCfg();
+};
+$("out").onclick=function(){localStorage.removeItem("tok");T="";$("tok").value="";show(false)};
+$("save").onclick=async function(){
+  var m=$("smsg");m.className="msg";m.textContent="";
+  var wa=$("wa").value.replace(/\D/g,"");
+  if(wa.length<8){m.className="msg bad";m.textContent="Numéro WhatsApp invalide.";return}
+  if(!num("dk")||!num("dc")||!num("rk")||!num("rc")){m.className="msg bad";m.textContent="Les taux doivent être supérieurs à 0.";return}
+  if(!$("mg").value.trim()){m.className="msg bad";m.textContent="Le message est vide.";return}
+  var cfg={whatsapp:wa,depotKz:num("dk"),depotCfa:num("dc"),retraitKz:num("rk"),retraitCfa:num("rc"),message:$("mg").value};
+  try{
+    var r=await fetch(URL,{method:"PUT",headers:hdr(),body:JSON.stringify({
+      message:"maj config",branch:"main",sha:sha,
+      content:btoa(unescape(encodeURIComponent(JSON.stringify(cfg,null,2))))
+    })});
+    if(!r.ok)throw new Error("Échec ("+r.status+"). Vérifiez les droits du jeton.");
+    sha=(await r.json()).content.sha;
+    m.className="msg ok";m.textContent="Enregistré. Les clients verront les changements à leur prochaine ouverture.";
+  }catch(e){m.className="msg bad";m.textContent=e.message}
+};
+if(T){loadCfg()}
+</script></body></html>

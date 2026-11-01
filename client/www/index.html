@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="fr"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Dépôt & Retrait</title>
+<style>
+:root{--bg:#f3f6f4;--card:#fff;--ink:#14231c;--muted:#5d6f66;--line:#d6e0da;--accent:#0d7a4f;--ai:#fff;--soft:#e3f2ea;--err:#b3261e}
+@media(prefers-color-scheme:dark){:root{color-scheme:dark;--bg:#0e1612;--card:#16211b;--ink:#eaf3ee;--muted:#9db0a5;--line:#2a3a31;--accent:#34c58a;--ai:#06150e;--soft:#1c3226;--err:#f2b8b5}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Trebuchet MS",system-ui,sans-serif;line-height:1.45;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}
+main{max-width:440px;margin:0 auto;padding:20px 16px 32px}
+h1{font-size:1.5rem;margin:8px 0 4px}.sub{color:var(--muted);margin:0 0 18px;font-size:.95rem}
+.tabs{display:grid;grid-template-columns:1fr 1fr;background:var(--soft);border-radius:12px;padding:4px;margin-bottom:16px}
+.tabs button{border:0;background:transparent;color:var(--muted);padding:10px;border-radius:9px;font:inherit;font-weight:600}
+.tabs button[aria-pressed=true]{background:var(--card);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.12)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px}
+label{display:block;font-weight:600;margin:0 0 6px}
+input{width:100%;font:inherit;font-size:1.05rem;padding:13px 14px;border-radius:10px;border:1.5px solid var(--line);background:var(--bg);color:var(--ink)}
+.f{margin-bottom:16px}
+.res{background:var(--soft);border-radius:14px;padding:16px;margin:4px 0 16px}.res small{color:var(--muted);display:block}
+.big{font-size:2rem;font-weight:700;color:var(--accent);word-break:break-word}.rate{font-size:.85rem;color:var(--muted)}
+.send{width:100%;border:0;border-radius:12px;background:var(--accent);color:var(--ai);font:inherit;font-weight:700;font-size:1.05rem;padding:15px}
+.err{color:var(--err);font-size:.9rem;min-height:1.2em;margin:0 0 10px}.note{color:var(--muted);font-size:.85rem;margin-top:14px;text-align:center}
+</style></head><body><main>
+<h1>Dépôt & Retrait</h1>
+<p class="sub">Entrez votre ID et le montant en Kwanza. Vous voyez ce que vous recevez en CFA.</p>
+<div class="tabs"><button id="td" aria-pressed="true">Dépôt</button><button id="tr" aria-pressed="false">Retrait</button></div>
+<div class="card">
+<div class="f"><label for="uid">Votre ID</label><input id="uid" inputmode="numeric" placeholder="Ex. 123456789"></div>
+<div class="f"><label for="amt">Montant en Kwanza (Kz)</label><input id="amt" inputmode="numeric" placeholder="Ex. 220000"></div>
+<div class="res"><small>Vous recevrez</small><div class="big" id="out">0 F</div><div class="rate" id="rate"></div></div>
+<p class="err" id="err"></p>
+<button class="send" id="send">Envoyer</button>
+<p class="note">Vous serez redirigé vers WhatsApp pour confirmer le paiement.</p>
+</div></main>
+<script>
+var OWNER="gnaziz15-sys",REPO="mobcash";
+var API="https://api.github.com/repos/"+OWNER+"/"+REPO+"/contents/config.json";
+var RAW="https://raw.githubusercontent.com/"+OWNER+"/"+REPO+"/main/config.json";
+var C={whatsapp:"",depotKz:220000,depotCfa:101000,retraitKz:220000,retraitCfa:101000,message:"Bonjour, demande de {type}\nID : {id}\nMontant : {kz} Kz\nMontant en CFA : {cfa} F"};
+try{var s=JSON.parse(localStorage.getItem("cfg"));if(s)C=s}catch(e){}
+var mode="depot";
+function $(i){return document.getElementById(i)}
+function fmt(n){return Math.round(n).toLocaleString("fr-FR").replace(/[\u202f\u00a0]/g," ")}
+function rate(){return mode=="depot"?C.depotCfa/C.depotKz:C.retraitCfa/C.retraitKz}
+function amount(){return parseInt(($("amt").value||"").replace(/\D/g,""),10)||0}
+function update(){
+  $("out").textContent=fmt(amount()*rate())+" F";
+  $("rate").textContent="Taux : 1 000 Kz = "+fmt(rate()*1000)+" F";
+}
+function setMode(m){mode=m;$("td").setAttribute("aria-pressed",m=="depot");$("tr").setAttribute("aria-pressed",m=="retrait");update()}
+$("td").onclick=function(){setMode("depot")};$("tr").onclick=function(){setMode("retrait")};
+$("amt").addEventListener("input",update);
+$("send").onclick=function(){
+  $("err").textContent="";
+  var id=$("uid").value.trim(),a=amount();
+  if(!id){$("err").textContent="Entrez votre ID.";return}
+  if(a<=0){$("err").textContent="Entrez un montant en Kz.";return}
+  var msg=C.message.replace(/\{type\}/g,mode=="depot"?"DÉPÔT":"RETRAIT").replace(/\{id\}/g,id).replace(/\{kz\}/g,fmt(a)).replace(/\{cfa\}/g,fmt(a*rate()));
+  window.location.href="https://wa.me/"+C.whatsapp+"?text="+encodeURIComponent(msg);
+};
+async function load(){
+  try{
+    var r=await fetch(API+"?t="+Date.now(),{headers:{Accept:"application/vnd.github.raw+json"},cache:"no-store"});
+    if(!r.ok)throw 0;C=await r.json();
+  }catch(e){
+    try{var r2=await fetch(RAW+"?t="+Date.now(),{cache:"no-store"});C=await r2.json()}catch(e2){}
+  }
+  try{localStorage.setItem("cfg",JSON.stringify(C))}catch(e){}
+  update();
+}
+update();load();
+</script></body></html>

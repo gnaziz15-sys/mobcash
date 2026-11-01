@@ -1,0 +1,8 @@
+{
+  "whatsapp": "2250000000000",
+  "depotKz": 220000,
+  "depotCfa": 101000,
+  "retraitKz": 220000,
+  "retraitCfa": 101000,
+  "message": "Bonjour, demande de {type}\nID : {id}\nMontant : {kz} Kz\nMontant en CFA : {cfa} F\nMerci de confirmer le paiement."
+}
