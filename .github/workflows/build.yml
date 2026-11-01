@@ -7,9 +7,6 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        app: [client, admin]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -19,14 +16,23 @@ jobs:
         with:
           distribution: temurin
           java-version: 17
+      - name: Icones
+        working-directory: client
+        run: |
+          sudo apt-get update && sudo apt-get install -y librsvg2-bin
+          mkdir -p assets
+          for n in icon-only icon-foreground icon-background; do
+            rsvg-convert -w 1024 -h 1024 icon/$n.svg -o assets/$n.png
+          done
       - name: Build
-        working-directory: ${{ matrix.app }}
+        working-directory: client
         run: |
           npm install
           npx cap add android
+          npx @capacitor/assets generate --android
           npx cap sync android
           cd android && chmod +x gradlew && ./gradlew assembleDebug
       - uses: actions/upload-artifact@v4
         with:
-          name: mobcash-${{ matrix.app }}
-          path: ${{ matrix.app }}/android/app/build/outputs/apk/debug/app-debug.apk
+          name: aziz-express
+          path: client/android/app/build/outputs/apk/debug/app-debug.apk
